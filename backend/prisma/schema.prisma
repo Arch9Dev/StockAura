@@ -51,6 +51,7 @@ model Product {
   price          Decimal
   quantity       Int             @default(0)
   lowStockAlert  Int             @default(5)
+  isActive       Boolean         @default(true)
   supplier       Supplier?       @relation(fields: [supplierId], references: [id])
   supplierId     Int?
   createdAt      DateTime        @default(now())
@@ -80,3 +81,4 @@ model AuditLog {
   metadata  Json?
   createdAt DateTime @default(now())
 }
+

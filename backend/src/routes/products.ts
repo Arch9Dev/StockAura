@@ -4,9 +4,11 @@ import { authenticate, requireRole } from '../middleware/auth';
 
 const router = Router();
 
-// GET all products
+// GET all products (active only by default)
 router.get('/', authenticate, async (req, res) => {
+  const { includeArchived } = req.query;
   const products = await prisma.product.findMany({
+    where: includeArchived === 'true' ? undefined : { isActive: true },
     include: { supplier: true },
   });
   res.json(products);
@@ -49,10 +51,43 @@ router.put('/:id', authenticate, requireRole('MANAGER', 'ADMIN'), async (req, re
   }
 });
 
-// DELETE product
-router.delete('/:id', authenticate, requireRole('ADMIN'), async (req, res) => {
+// ARCHIVE product (soft delete — preserves stock movement history)
+router.patch('/:id/archive', authenticate, requireRole('ADMIN'), async (req, res) => {
   try {
-    await prisma.product.delete({ where: { id: Number(req.params.id) } });
+    const product = await prisma.product.update({
+      where: { id: Number(req.params.id) },
+      data: { isActive: false },
+    });
+    res.json(product);
+  } catch (err) {
+    res.status(404).json({ error: 'Product not found' });
+  }
+});
+
+// RESTORE an archived product
+router.patch('/:id/restore', authenticate, requireRole('ADMIN'), async (req, res) => {
+  try {
+    const product = await prisma.product.update({
+      where: { id: Number(req.params.id) },
+      data: { isActive: true },
+    });
+    res.json(product);
+  } catch (err) {
+    res.status(404).json({ error: 'Product not found' });
+  }
+});
+
+// DELETE product (only allowed if no stock history exists)
+router.delete('/:id', authenticate, requireRole('ADMIN'), async (req, res) => {
+  const id = Number(req.params.id);
+  try {
+    const movementCount = await prisma.stockMovement.count({ where: { productId: id } });
+    if (movementCount > 0) {
+      return res.status(400).json({
+        error: 'Cannot delete a product with stock movement history. Archive it instead.',
+      });
+    }
+    await prisma.product.delete({ where: { id } });
     res.status(204).send();
   } catch (err) {
     res.status(404).json({ error: 'Product not found' });
