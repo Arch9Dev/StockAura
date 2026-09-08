@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { prisma } from '../prisma';
 import { authenticate, requireRole } from '../middleware/auth';
+import { logAudit } from '../lib/audit';
 
 const router = Router();
 
@@ -31,6 +32,13 @@ router.post('/', authenticate, requireRole('MANAGER', 'ADMIN'), async (req, res)
     const product = await prisma.product.create({
       data: { name, sku, description, price, quantity, lowStockAlert, supplierId },
     });
+    await logAudit({
+      action: 'CREATE',
+      entity: 'Product',
+      entityId: product.id,
+      userId: req.user!.userId,
+      metadata: { name: product.name, sku: product.sku },
+    });
     res.status(201).json(product);
   } catch (err) {
     res.status(400).json({ error: 'Failed to create product', details: err });
@@ -45,6 +53,12 @@ router.put('/:id', authenticate, requireRole('MANAGER', 'ADMIN'), async (req, re
       where: { id: Number(req.params.id) },
       data: { name, sku, description, price, quantity, lowStockAlert, supplierId },
     });
+    await logAudit({
+      action: 'UPDATE',
+      entity: 'Product',
+      entityId: product.id,
+      userId: req.user!.userId,
+    });
     res.json(product);
   } catch (err) {
     res.status(404).json({ error: 'Product not found' });
@@ -58,6 +72,12 @@ router.patch('/:id/archive', authenticate, requireRole('ADMIN'), async (req, res
       where: { id: Number(req.params.id) },
       data: { isActive: false },
     });
+    await logAudit({
+      action: 'ARCHIVE',
+      entity: 'Product',
+      entityId: product.id,
+      userId: req.user!.userId,
+    });
     res.json(product);
   } catch (err) {
     res.status(404).json({ error: 'Product not found' });
@@ -70,6 +90,12 @@ router.patch('/:id/restore', authenticate, requireRole('ADMIN'), async (req, res
     const product = await prisma.product.update({
       where: { id: Number(req.params.id) },
       data: { isActive: true },
+    });
+    await logAudit({
+      action: 'RESTORE',
+      entity: 'Product',
+      entityId: product.id,
+      userId: req.user!.userId,
     });
     res.json(product);
   } catch (err) {
@@ -88,6 +114,12 @@ router.delete('/:id', authenticate, requireRole('ADMIN'), async (req, res) => {
       });
     }
     await prisma.product.delete({ where: { id } });
+    await logAudit({
+      action: 'DELETE',
+      entity: 'Product',
+      entityId: id,
+      userId: req.user!.userId,
+    });
     res.status(204).send();
   } catch (err) {
     res.status(404).json({ error: 'Product not found' });
