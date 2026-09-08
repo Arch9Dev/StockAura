@@ -5,18 +5,20 @@ import productsRouter from './routes/products';
 import suppliersRouter from './routes/suppliers';
 import authRouter from './routes/auth';
 import stockMovementsRouter from './routes/stockMovements';
+import dashboardRouter from './routes/dashboard';
 
 dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 4000;
 
-app.use(cors());
+app.use(cors({ origin: process.env.FRONTEND_URL || 'http://localhost:3000' }));
 app.use(express.json());
 app.use('/products', productsRouter);
 app.use('/suppliers', suppliersRouter);
 app.use('/auth', authRouter);
 app.use('/stock-movements', stockMovementsRouter);
+app.use('/dashboard', dashboardRouter);
 
 app.get('/', (req, res) => {
   res.json({ message: 'StockAura API is running' });

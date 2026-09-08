@@ -47,4 +47,6 @@ export const api = {
   addStockMovement: (data: any) => request('/stock-movements', { method: 'POST', body: JSON.stringify(data) }),
   getStockMovements: (productId?: number) =>
     request(`/stock-movements${productId ? `?productId=${productId}` : ''}`),
+
+  getDashboardSummary: () => request('/dashboard/summary'),
 };

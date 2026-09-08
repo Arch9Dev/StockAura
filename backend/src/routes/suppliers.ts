@@ -39,7 +39,8 @@ router.post('/', authenticate, requireRole('MANAGER', 'ADMIN'), async (req, res)
     });
     res.status(201).json(supplier);
   } catch (err) {
-    res.status(400).json({ error: 'Failed to create supplier', details: err });
+    console.error('Create supplier error:', err);
+    res.status(400).json({ error: 'Failed to create supplier' });
   }
 });
 

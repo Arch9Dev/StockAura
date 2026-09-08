@@ -28,6 +28,14 @@ router.get('/:id', authenticate, async (req, res) => {
 // CREATE product
 router.post('/', authenticate, requireRole('MANAGER', 'ADMIN'), async (req, res) => {
   const { name, sku, description, price, quantity, lowStockAlert, supplierId } = req.body;
+
+  const existing = await prisma.product.findUnique({ where: { sku } });
+  if (existing) {
+    return res.status(409).json({
+      error: `SKU "${sku}" is already in use${existing.isActive ? '' : ' by an archived product'}.`,
+    });
+  }
+
   try {
     const product = await prisma.product.create({
       data: { name, sku, description, price, quantity, lowStockAlert, supplierId },
@@ -41,7 +49,8 @@ router.post('/', authenticate, requireRole('MANAGER', 'ADMIN'), async (req, res)
     });
     res.status(201).json(product);
   } catch (err) {
-    res.status(400).json({ error: 'Failed to create product', details: err });
+    console.error('Create product error:', err);
+    res.status(400).json({ error: 'Failed to create product' });
   }
 });
 
