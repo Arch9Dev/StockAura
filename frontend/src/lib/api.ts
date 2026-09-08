@@ -32,8 +32,17 @@ export const api = {
 
   register: (email: string, password: string, name: string) =>
     request('/auth/register', { method: 'POST', body: JSON.stringify({ email, password, name }) }),
-
-  getProducts: () => request('/products'),
+  getProducts: (params?: { search?: string; status?: string; page?: number; pageSize?: number; sortBy?: string; sortDir?: string }) => {
+    const query = new URLSearchParams();
+    if (params?.search) query.set('search', params.search);
+    if (params?.status) query.set('status', params.status);
+    if (params?.page) query.set('page', String(params.page));
+    if (params?.pageSize) query.set('pageSize', String(params.pageSize));
+    if (params?.sortBy) query.set('sortBy', params.sortBy);
+    if (params?.sortDir) query.set('sortDir', params.sortDir);
+    const qs = query.toString();
+    return request(`/products${qs ? `?${qs}` : ''}`);
+  },
   getProduct: (id: number) => request(`/products/${id}`),
   createProduct: (data: any) => request('/products', { method: 'POST', body: JSON.stringify(data) }),
   updateProduct: (id: number, data: any) => request(`/products/${id}`, { method: 'PUT', body: JSON.stringify(data) }),

@@ -29,6 +29,13 @@ function ProductsContent() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('active');
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [sortBy, setSortBy] = useState('name');
+  const [sortDir, setSortDir] = useState('asc');
+
   const [showAddProduct, setShowAddProduct] = useState(false);
   const [newProduct, setNewProduct] = useState({ name: '', sku: '', price: '', quantity: '' });
 
@@ -46,8 +53,9 @@ function ProductsContent() {
   async function loadProducts() {
     setLoading(true);
     try {
-      const data = await api.getProducts();
-      setProducts(data);
+      const result = await api.getProducts({ search, status: statusFilter, page, pageSize: 10, sortBy, sortDir });
+      setProducts(result.data);
+      setTotalPages(result.totalPages);
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -56,8 +64,21 @@ function ProductsContent() {
   }
 
   useEffect(() => {
-    loadProducts();
-  }, []);
+    const timeout = setTimeout(() => {
+      loadProducts();
+    }, 300);
+    return () => clearTimeout(timeout);
+  }, [search, statusFilter, page, sortBy, sortDir]);
+
+  function handleSort(field: string) {
+    if (sortBy === field) {
+      setSortDir(sortDir === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortBy(field);
+      setSortDir('asc');
+    }
+    setPage(1);
+  }
 
   async function handleAddProduct(e: React.FormEvent) {
     e.preventDefault();
@@ -160,73 +181,126 @@ function ProductsContent() {
           </div>
         </div>
 
+        <div className="mb-4 flex gap-3">
+          <input
+            type="text"
+            placeholder="Search by name or SKU..."
+            value={search}
+            onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+            className="flex-1 rounded-md border border-neutral-700 bg-neutral-900 px-3 py-2 text-sm text-white placeholder-neutral-500"
+          />
+          <select
+            value={statusFilter}
+            onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
+            className="rounded-md border border-neutral-700 bg-neutral-900 px-3 py-2 text-sm text-white"
+          >
+            <option value="active">Active</option>
+            <option value="archived">Archived</option>
+            <option value="all">All</option>
+          </select>
+        </div>
+
         {error && <p className="mb-4 text-sm text-red-400">{error}</p>}
 
         {loading ? (
           <p className="text-neutral-400">Loading...</p>
         ) : (
-          <div className="overflow-hidden rounded-lg border border-neutral-800 bg-neutral-900">
-            <table className="w-full text-sm">
-              <thead className="bg-neutral-900 text-left text-neutral-400">
-                <tr>
-                  <th className="px-4 py-3">Name</th>
-                  <th className="px-4 py-3">SKU</th>
-                  <th className="px-4 py-3">Price</th>
-                  <th className="px-4 py-3">Quantity</th>
-                  <th className="px-4 py-3">Status</th>
-                  <th className="px-4 py-3"></th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-neutral-800">
-                {products.map((p) => (
-                  <tr key={p.id}>
-                    <td className="px-4 py-3 font-medium text-white">{p.name}</td>
-                    <td className="px-4 py-3 text-neutral-400">{p.sku}</td>
-                    <td className="px-4 py-3 text-neutral-400">${Number(p.price).toFixed(2)}</td>
-                    <td className="px-4 py-3 text-neutral-400">{p.quantity}</td>
-                    <td className="px-4 py-3">
-                      {p.quantity <= p.lowStockAlert ? (
-                        <span className="rounded-full bg-red-950 px-2 py-0.5 text-xs font-medium text-red-400">
-                          Low stock
-                        </span>
-                      ) : (
-                        <span className="rounded-full bg-green-950 px-2 py-0.5 text-xs font-medium text-green-400">
-                          In stock
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <button
-                        onClick={() => setStockModalProduct(p)}
-                        className="mr-3 text-blue-400 hover:underline"
-                      >
-                        Adjust stock
-                      </button>
-                      {canManage && (
-                        <button
-                          onClick={() => openEditModal(p)}
-                          className="mr-3 text-neutral-300 hover:underline"
-                        >
-                          Edit
-                        </button>
-                      )}
-                      {canArchive && (
-                        <button
-                          onClick={() => handleArchive(p.id)}
-                          className="text-orange-400 hover:underline"
-                        >
-                          Archive
-                        </button>
-                      )}
-                    </td>
+          <>
+            <div className="overflow-hidden rounded-lg border border-neutral-800 bg-neutral-900">
+              <table className="w-full text-sm">
+                <thead className="bg-neutral-900 text-left text-neutral-400">
+                  <tr>
+                    <th className="cursor-pointer select-none px-4 py-3 hover:text-white" onClick={() => handleSort('name')}>
+                      Name {sortBy === 'name' && (sortDir === 'asc' ? '↑' : '↓')}
+                    </th>
+                    <th className="cursor-pointer select-none px-4 py-3 hover:text-white" onClick={() => handleSort('sku')}>
+                      SKU {sortBy === 'sku' && (sortDir === 'asc' ? '↑' : '↓')}
+                    </th>
+                    <th className="cursor-pointer select-none px-4 py-3 hover:text-white" onClick={() => handleSort('price')}>
+                      Price {sortBy === 'price' && (sortDir === 'asc' ? '↑' : '↓')}
+                    </th>
+                    <th className="cursor-pointer select-none px-4 py-3 hover:text-white" onClick={() => handleSort('quantity')}>
+                      Quantity {sortBy === 'quantity' && (sortDir === 'asc' ? '↑' : '↓')}
+                    </th>
+                    <th className="px-4 py-3">Status</th>
+                    <th className="px-4 py-3"></th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-            {products.length === 0 && (
-              <p className="p-6 text-center text-neutral-500">No products yet.</p>
+                </thead>
+                <tbody className="divide-y divide-neutral-800">
+                  {products.map((p) => (
+                    <tr key={p.id}>
+                      <td className="px-4 py-3 font-medium text-white">{p.name}</td>
+                      <td className="px-4 py-3 text-neutral-400">{p.sku}</td>
+                      <td className="px-4 py-3 text-neutral-400">${Number(p.price).toFixed(2)}</td>
+                      <td className="px-4 py-3 text-neutral-400">{p.quantity}</td>
+                      <td className="px-4 py-3">
+                        {!p.isActive ? (
+                          <span className="rounded-full bg-neutral-800 px-2 py-0.5 text-xs font-medium text-neutral-400">
+                            Archived
+                          </span>
+                        ) : p.quantity <= p.lowStockAlert ? (
+                          <span className="rounded-full bg-red-950 px-2 py-0.5 text-xs font-medium text-red-400">
+                            Low stock
+                          </span>
+                        ) : (
+                          <span className="rounded-full bg-green-950 px-2 py-0.5 text-xs font-medium text-green-400">
+                            In stock
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <button
+                          onClick={() => setStockModalProduct(p)}
+                          className="mr-3 text-blue-400 hover:underline"
+                        >
+                          Adjust stock
+                        </button>
+                        {canManage && (
+                          <button
+                            onClick={() => openEditModal(p)}
+                            className="mr-3 text-neutral-300 hover:underline"
+                          >
+                            Edit
+                          </button>
+                        )}
+                        {canArchive && p.isActive && (
+                          <button
+                            onClick={() => handleArchive(p.id)}
+                            className="text-orange-400 hover:underline"
+                          >
+                            Archive
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {products.length === 0 && (
+                <p className="p-6 text-center text-neutral-500">No products found.</p>
+              )}
+            </div>
+
+            {totalPages > 1 && (
+              <div className="mt-4 flex items-center justify-center gap-4">
+                <button
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={page === 1}
+                  className="rounded-md border border-neutral-700 px-3 py-1.5 text-sm text-neutral-300 hover:bg-neutral-800 disabled:opacity-40"
+                >
+                  Previous
+                </button>
+                <span className="text-sm text-neutral-400">Page {page} of {totalPages}</span>
+                <button
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={page === totalPages}
+                  className="rounded-md border border-neutral-700 px-3 py-1.5 text-sm text-neutral-300 hover:bg-neutral-800 disabled:opacity-40"
+                >
+                  Next
+                </button>
+              </div>
             )}
-          </div>
+          </>
         )}
 
         {/* Add Product Modal */}

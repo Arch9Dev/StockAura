@@ -5,14 +5,55 @@ import { logAudit } from '../lib/audit';
 
 const router = Router();
 
-// GET all products (active only by default)
+// GET all products (search, filter, sort, paginate)
 router.get('/', authenticate, async (req, res) => {
-  const { includeArchived } = req.query;
-  const products = await prisma.product.findMany({
-    where: includeArchived === 'true' ? undefined : { isActive: true },
-    include: { supplier: true },
+  const {
+    search,
+    status = 'active',
+    page = '1',
+    pageSize = '10',
+    sortBy = 'name',
+    sortDir = 'asc',
+  } = req.query as Record<string, string>;
+
+  const pageNum = Math.max(1, parseInt(page) || 1);
+  const pageSizeNum = Math.min(100, Math.max(1, parseInt(pageSize) || 10));
+
+  const where: any = {};
+
+  if (status === 'active') where.isActive = true;
+  if (status === 'archived') where.isActive = false;
+  // status === 'all' → no filter applied
+
+  if (search) {
+    where.OR = [
+      { name: { contains: search, mode: 'insensitive' } },
+      { sku: { contains: search, mode: 'insensitive' } },
+    ];
+  }
+
+  const allowedSortFields = ['name', 'sku', 'price', 'quantity', 'createdAt'];
+  const sortField = allowedSortFields.includes(sortBy) ? sortBy : 'name';
+  const sortDirection = sortDir === 'desc' ? 'desc' : 'asc';
+
+  const [products, total] = await Promise.all([
+    prisma.product.findMany({
+      where,
+      include: { supplier: true },
+      orderBy: { [sortField]: sortDirection },
+      skip: (pageNum - 1) * pageSizeNum,
+      take: pageSizeNum,
+    }),
+    prisma.product.count({ where }),
+  ]);
+
+  res.json({
+    data: products,
+    total,
+    page: pageNum,
+    pageSize: pageSizeNum,
+    totalPages: Math.ceil(total / pageSizeNum),
   });
-  res.json(products);
 });
 
 // GET one product
