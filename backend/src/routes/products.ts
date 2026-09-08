@@ -1,10 +1,11 @@
 import { Router } from 'express';
 import { prisma } from '../prisma';
+import { authenticate, requireRole } from '../middleware/auth';
 
 const router = Router();
 
 // GET all products
-router.get('/', async (req, res) => {
+router.get('/', authenticate, async (req, res) => {
   const products = await prisma.product.findMany({
     include: { supplier: true },
   });
@@ -12,7 +13,7 @@ router.get('/', async (req, res) => {
 });
 
 // GET one product
-router.get('/:id', async (req, res) => {
+router.get('/:id', authenticate, async (req, res) => {
   const product = await prisma.product.findUnique({
     where: { id: Number(req.params.id) },
     include: { supplier: true },
@@ -22,7 +23,7 @@ router.get('/:id', async (req, res) => {
 });
 
 // CREATE product
-router.post('/', async (req, res) => {
+router.post('/', authenticate, requireRole('MANAGER', 'ADMIN'), async (req, res) => {
   const { name, sku, description, price, quantity, lowStockAlert, supplierId } = req.body;
   try {
     const product = await prisma.product.create({
@@ -35,7 +36,7 @@ router.post('/', async (req, res) => {
 });
 
 // UPDATE product
-router.put('/:id', async (req, res) => {
+router.put('/:id', authenticate, requireRole('MANAGER', 'ADMIN'), async (req, res) => {
   const { name, sku, description, price, quantity, lowStockAlert, supplierId } = req.body;
   try {
     const product = await prisma.product.update({
@@ -49,7 +50,7 @@ router.put('/:id', async (req, res) => {
 });
 
 // DELETE product
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', authenticate, requireRole('ADMIN'), async (req, res) => {
   try {
     await prisma.product.delete({ where: { id: Number(req.params.id) } });
     res.status(204).send();
