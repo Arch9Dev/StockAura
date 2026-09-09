@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import RequireAuth from '@/components/RequireAuth';
+import NavBar from '@/components/NavBar';
+import ConfirmModal from '@/components/ConfirmModal';
 import { useAuth } from '@/context/AuthContext';
 import { api } from '@/lib/api';
 
@@ -24,13 +26,12 @@ export default function ProductsPage() {
 }
 
 function ProductsContent() {
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState('active');
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [sortBy, setSortBy] = useState('name');
@@ -47,13 +48,15 @@ function ProductsContent() {
   const [editModalProduct, setEditModalProduct] = useState<Product | null>(null);
   const [editForm, setEditForm] = useState({ name: '', sku: '', price: '', quantity: '', lowStockAlert: '' });
 
+  const [archiveConfirmProduct, setArchiveConfirmProduct] = useState<Product | null>(null);
+
   const canManage = user?.role === 'MANAGER' || user?.role === 'ADMIN';
   const canArchive = user?.role === 'ADMIN';
 
   async function loadProducts() {
     setLoading(true);
     try {
-      const result = await api.getProducts({ search, status: statusFilter, page, pageSize: 10, sortBy, sortDir });
+      const result = await api.getProducts({ search, status: 'active', page, pageSize: 10, sortBy, sortDir });
       setProducts(result.data);
       setTotalPages(result.totalPages);
     } catch (err: any) {
@@ -68,7 +71,7 @@ function ProductsContent() {
       loadProducts();
     }, 300);
     return () => clearTimeout(timeout);
-  }, [search, statusFilter, page, sortBy, sortDir]);
+  }, [search, page, sortBy, sortDir]);
 
   function handleSort(field: string) {
     if (sortBy === field) {
@@ -97,10 +100,11 @@ function ProductsContent() {
     }
   }
 
-  async function handleArchive(id: number) {
-    if (!confirm('Archive this product? It will be hidden but its history is preserved.')) return;
+  async function confirmArchive() {
+    if (!archiveConfirmProduct) return;
     try {
-      await api.archiveProduct(id);
+      await api.archiveProduct(archiveConfirmProduct.id);
+      setArchiveConfirmProduct(null);
       loadProducts();
     } catch (err: any) {
       setError(err.message);
@@ -156,94 +160,70 @@ function ProductsContent() {
   }
 
   return (
-    <div className="min-h-screen bg-neutral-950 p-8 text-neutral-100">
+    <div className="min-h-screen bg-slate-50 p-8 text-gray-900 dark:bg-gray-950 dark:text-gray-100">
       <div className="mx-auto max-w-5xl">
-        <div className="mb-6 flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-semibold text-white">Products</h1>
-            <p className="text-sm text-neutral-400">Logged in as {user?.name} ({user?.role})</p>
-          </div>
-          <div className="flex gap-2">
-            {canManage && (
-              <button
-                onClick={() => setShowAddProduct(true)}
-                className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500"
-              >
-                Add Product
-              </button>
-            )}
+        <NavBar />
+
+        <div className="mb-4 flex items-center justify-between">
+          <h1 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Products</h1>
+          {canManage && (
             <button
-              onClick={logout}
-              className="rounded-md border border-neutral-700 px-4 py-2 text-sm font-medium text-neutral-200 hover:bg-neutral-800"
+              onClick={() => setShowAddProduct(true)}
+              className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700"
             >
-              Log out
+              Add Product
             </button>
-          </div>
+          )}
         </div>
 
-        <div className="mb-4 flex gap-3">
-          <input
-            type="text"
-            placeholder="Search by name or SKU..."
-            value={search}
-            onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-            className="flex-1 rounded-md border border-neutral-700 bg-neutral-900 px-3 py-2 text-sm text-white placeholder-neutral-500"
-          />
-          <select
-            value={statusFilter}
-            onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
-            className="rounded-md border border-neutral-700 bg-neutral-900 px-3 py-2 text-sm text-white"
-          >
-            <option value="active">Active</option>
-            <option value="archived">Archived</option>
-            <option value="all">All</option>
-          </select>
-        </div>
+        <input
+          type="text"
+          placeholder="Search by name or SKU..."
+          value={search}
+          onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+          className="mb-4 w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100 dark:placeholder-gray-500"
+        />
 
-        {error && <p className="mb-4 text-sm text-red-400">{error}</p>}
+        {error && <p className="mb-4 text-sm text-red-600 dark:text-red-400">{error}</p>}
 
         {loading ? (
-          <p className="text-neutral-400">Loading...</p>
+          <p className="text-gray-500 dark:text-gray-400">Loading...</p>
         ) : (
           <>
-            <div className="overflow-hidden rounded-lg border border-neutral-800 bg-neutral-900">
+            <div className="overflow-hidden rounded-lg border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
               <table className="w-full text-sm">
-                <thead className="bg-neutral-900 text-left text-neutral-400">
+                <thead className="bg-gray-50 text-left text-gray-500 dark:bg-gray-900 dark:text-gray-400">
                   <tr>
-                    <th className="cursor-pointer select-none px-4 py-3 hover:text-white" onClick={() => handleSort('name')}>
+                    <th className="cursor-pointer select-none px-4 py-3 hover:text-gray-900 dark:hover:text-gray-100" onClick={() => handleSort('name')}>
                       Name {sortBy === 'name' && (sortDir === 'asc' ? '↑' : '↓')}
                     </th>
-                    <th className="cursor-pointer select-none px-4 py-3 hover:text-white" onClick={() => handleSort('sku')}>
+                    <th className="cursor-pointer select-none px-4 py-3 hover:text-gray-900 dark:hover:text-gray-100" onClick={() => handleSort('sku')}>
                       SKU {sortBy === 'sku' && (sortDir === 'asc' ? '↑' : '↓')}
                     </th>
-                    <th className="cursor-pointer select-none px-4 py-3 hover:text-white" onClick={() => handleSort('price')}>
+                    <th className="cursor-pointer select-none px-4 py-3 hover:text-gray-900 dark:hover:text-gray-100" onClick={() => handleSort('price')}>
                       Price {sortBy === 'price' && (sortDir === 'asc' ? '↑' : '↓')}
                     </th>
-                    <th className="cursor-pointer select-none px-4 py-3 hover:text-white" onClick={() => handleSort('quantity')}>
+                    <th className="cursor-pointer select-none px-4 py-3 hover:text-gray-900 dark:hover:text-gray-100" onClick={() => handleSort('quantity')}>
                       Quantity {sortBy === 'quantity' && (sortDir === 'asc' ? '↑' : '↓')}
                     </th>
                     <th className="px-4 py-3">Status</th>
                     <th className="px-4 py-3"></th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-neutral-800">
+                <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
                   {products.map((p) => (
                     <tr key={p.id}>
-                      <td className="px-4 py-3 font-medium text-white">{p.name}</td>
-                      <td className="px-4 py-3 text-neutral-400">{p.sku}</td>
-                      <td className="px-4 py-3 text-neutral-400">${Number(p.price).toFixed(2)}</td>
-                      <td className="px-4 py-3 text-neutral-400">{p.quantity}</td>
+                      <td className="px-4 py-3 font-medium text-gray-900 dark:text-gray-100">{p.name}</td>
+                      <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{p.sku}</td>
+                      <td className="px-4 py-3 text-gray-500 dark:text-gray-400">${Number(p.price).toFixed(2)}</td>
+                      <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{p.quantity}</td>
                       <td className="px-4 py-3">
-                        {!p.isActive ? (
-                          <span className="rounded-full bg-neutral-800 px-2 py-0.5 text-xs font-medium text-neutral-400">
-                            Archived
-                          </span>
-                        ) : p.quantity <= p.lowStockAlert ? (
-                          <span className="rounded-full bg-red-950 px-2 py-0.5 text-xs font-medium text-red-400">
+                        {p.quantity <= p.lowStockAlert ? (
+                          <span className="rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-600 dark:bg-amber-950 dark:text-amber-400">
                             Low stock
                           </span>
                         ) : (
-                          <span className="rounded-full bg-green-950 px-2 py-0.5 text-xs font-medium text-green-400">
+                          <span className="rounded-full bg-green-50 px-2 py-0.5 text-xs font-medium text-green-600 dark:bg-green-950 dark:text-green-400">
                             In stock
                           </span>
                         )}
@@ -251,22 +231,22 @@ function ProductsContent() {
                       <td className="px-4 py-3 text-right">
                         <button
                           onClick={() => setStockModalProduct(p)}
-                          className="mr-3 text-blue-400 hover:underline"
+                          className="mr-3 text-emerald-600 hover:underline dark:text-emerald-400"
                         >
                           Adjust stock
                         </button>
                         {canManage && (
                           <button
                             onClick={() => openEditModal(p)}
-                            className="mr-3 text-neutral-300 hover:underline"
+                            className="mr-3 text-gray-500 hover:underline dark:text-gray-400"
                           >
                             Edit
                           </button>
                         )}
-                        {canArchive && p.isActive && (
+                        {canArchive && (
                           <button
-                            onClick={() => handleArchive(p.id)}
-                            className="text-orange-400 hover:underline"
+                            onClick={() => setArchiveConfirmProduct(p)}
+                            className="text-amber-600 hover:underline dark:text-amber-400"
                           >
                             Archive
                           </button>
@@ -277,7 +257,7 @@ function ProductsContent() {
                 </tbody>
               </table>
               {products.length === 0 && (
-                <p className="p-6 text-center text-neutral-500">No products found.</p>
+                <p className="p-6 text-center text-gray-400 dark:text-gray-500">No products found.</p>
               )}
             </div>
 
@@ -286,15 +266,15 @@ function ProductsContent() {
                 <button
                   onClick={() => setPage((p) => Math.max(1, p - 1))}
                   disabled={page === 1}
-                  className="rounded-md border border-neutral-700 px-3 py-1.5 text-sm text-neutral-300 hover:bg-neutral-800 disabled:opacity-40"
+                  className="rounded-md border border-gray-200 bg-white px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-100 disabled:opacity-40 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200 dark:hover:bg-gray-800"
                 >
                   Previous
                 </button>
-                <span className="text-sm text-neutral-400">Page {page} of {totalPages}</span>
+                <span className="text-sm text-gray-500 dark:text-gray-400">Page {page} of {totalPages}</span>
                 <button
                   onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                   disabled={page === totalPages}
-                  className="rounded-md border border-neutral-700 px-3 py-1.5 text-sm text-neutral-300 hover:bg-neutral-800 disabled:opacity-40"
+                  className="rounded-md border border-gray-200 bg-white px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-100 disabled:opacity-40 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200 dark:hover:bg-gray-800"
                 >
                   Next
                 </button>
@@ -303,11 +283,10 @@ function ProductsContent() {
           </>
         )}
 
-        {/* Add Product Modal */}
         {showAddProduct && (
-          <div className="fixed inset-0 flex items-center justify-center bg-black/60">
-            <div className="w-full max-w-sm rounded-lg border border-neutral-800 bg-neutral-900 p-6 shadow-lg">
-              <h2 className="mb-4 text-lg font-semibold text-white">Add Product</h2>
+          <div className="fixed inset-0 flex items-center justify-center bg-gray-900/40">
+            <div className="w-full max-w-sm rounded-lg border border-gray-200 bg-white p-6 shadow-lg dark:border-gray-700 dark:bg-gray-900">
+              <h2 className="mb-4 text-lg font-semibold text-gray-900 dark:text-gray-100">Add Product</h2>
               <form onSubmit={handleAddProduct} className="space-y-3">
                 <input
                   type="text"
@@ -315,7 +294,7 @@ function ProductsContent() {
                   value={newProduct.name}
                   onChange={(e) => setNewProduct({ ...newProduct, name: e.target.value })}
                   required
-                  className="w-full rounded-md border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm text-white placeholder-neutral-500"
+                  className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100"
                 />
                 <input
                   type="text"
@@ -323,7 +302,7 @@ function ProductsContent() {
                   value={newProduct.sku}
                   onChange={(e) => setNewProduct({ ...newProduct, sku: e.target.value })}
                   required
-                  className="w-full rounded-md border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm text-white placeholder-neutral-500"
+                  className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100"
                 />
                 <input
                   type="number"
@@ -332,26 +311,26 @@ function ProductsContent() {
                   value={newProduct.price}
                   onChange={(e) => setNewProduct({ ...newProduct, price: e.target.value })}
                   required
-                  className="w-full rounded-md border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm text-white placeholder-neutral-500"
+                  className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100"
                 />
                 <input
                   type="number"
                   placeholder="Starting quantity"
                   value={newProduct.quantity}
                   onChange={(e) => setNewProduct({ ...newProduct, quantity: e.target.value })}
-                  className="w-full rounded-md border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm text-white placeholder-neutral-500"
+                  className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100"
                 />
                 <div className="flex justify-end gap-2 pt-2">
                   <button
                     type="button"
                     onClick={() => setShowAddProduct(false)}
-                    className="rounded-md px-4 py-2 text-sm text-neutral-400 hover:bg-neutral-800"
+                    className="rounded-md px-4 py-2 text-sm text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
-                    className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500"
+                    className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700"
                   >
                     Add
                   </button>
@@ -361,17 +340,16 @@ function ProductsContent() {
           </div>
         )}
 
-        {/* Adjust Stock Modal */}
         {stockModalProduct && (
-          <div className="fixed inset-0 flex items-center justify-center bg-black/60">
-            <div className="w-full max-w-sm rounded-lg border border-neutral-800 bg-neutral-900 p-6 shadow-lg">
-              <h2 className="mb-1 text-lg font-semibold text-white">Adjust Stock</h2>
-              <p className="mb-4 text-sm text-neutral-400">{stockModalProduct.name}</p>
+          <div className="fixed inset-0 flex items-center justify-center bg-gray-900/40">
+            <div className="w-full max-w-sm rounded-lg border border-gray-200 bg-white p-6 shadow-lg dark:border-gray-700 dark:bg-gray-900">
+              <h2 className="mb-1 text-lg font-semibold text-gray-900 dark:text-gray-100">Adjust Stock</h2>
+              <p className="mb-4 text-sm text-gray-500 dark:text-gray-400">{stockModalProduct.name}</p>
               <form onSubmit={handleStockSubmit} className="space-y-3">
                 <select
                   value={stockType}
                   onChange={(e) => setStockType(e.target.value)}
-                  className="w-full rounded-md border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm text-white"
+                  className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm text-gray-900 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100"
                 >
                   <option value="RESTOCK">Restock (add stock)</option>
                   <option value="SALE">Sale (remove stock)</option>
@@ -385,26 +363,26 @@ function ProductsContent() {
                   onChange={(e) => setStockAmount(e.target.value)}
                   required
                   min={1}
-                  className="w-full rounded-md border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm text-white placeholder-neutral-500"
+                  className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100"
                 />
                 <input
                   type="text"
                   placeholder="Note (optional)"
                   value={stockNote}
                   onChange={(e) => setStockNote(e.target.value)}
-                  className="w-full rounded-md border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm text-white placeholder-neutral-500"
+                  className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100"
                 />
                 <div className="flex justify-end gap-2 pt-2">
                   <button
                     type="button"
                     onClick={() => setStockModalProduct(null)}
-                    className="rounded-md px-4 py-2 text-sm text-neutral-400 hover:bg-neutral-800"
+                    className="rounded-md px-4 py-2 text-sm text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
-                    className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500"
+                    className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700"
                   >
                     Submit
                   </button>
@@ -414,11 +392,10 @@ function ProductsContent() {
           </div>
         )}
 
-        {/* Edit Product Modal */}
         {editModalProduct && (
-          <div className="fixed inset-0 flex items-center justify-center bg-black/60">
-            <div className="w-full max-w-sm rounded-lg border border-neutral-800 bg-neutral-900 p-6 shadow-lg">
-              <h2 className="mb-4 text-lg font-semibold text-white">Edit Product</h2>
+          <div className="fixed inset-0 flex items-center justify-center bg-gray-900/40">
+            <div className="w-full max-w-sm rounded-lg border border-gray-200 bg-white p-6 shadow-lg dark:border-gray-700 dark:bg-gray-900">
+              <h2 className="mb-4 text-lg font-semibold text-gray-900 dark:text-gray-100">Edit Product</h2>
               <form onSubmit={handleEditSubmit} className="space-y-3">
                 <input
                   type="text"
@@ -426,7 +403,7 @@ function ProductsContent() {
                   value={editForm.name}
                   onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
                   required
-                  className="w-full rounded-md border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm text-white placeholder-neutral-500"
+                  className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100"
                 />
                 <input
                   type="text"
@@ -434,7 +411,7 @@ function ProductsContent() {
                   value={editForm.sku}
                   onChange={(e) => setEditForm({ ...editForm, sku: e.target.value })}
                   required
-                  className="w-full rounded-md border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm text-white placeholder-neutral-500"
+                  className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100"
                 />
                 <input
                   type="number"
@@ -443,7 +420,7 @@ function ProductsContent() {
                   value={editForm.price}
                   onChange={(e) => setEditForm({ ...editForm, price: e.target.value })}
                   required
-                  className="w-full rounded-md border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm text-white placeholder-neutral-500"
+                  className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100"
                 />
                 <div>
                   <input
@@ -452,9 +429,9 @@ function ProductsContent() {
                     value={editForm.quantity}
                     onChange={(e) => setEditForm({ ...editForm, quantity: e.target.value })}
                     required
-                    className="w-full rounded-md border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm text-white placeholder-neutral-500"
+                    className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100"
                   />
-                  <p className="mt-1 text-xs text-neutral-500">
+                  <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
                     Changing quantity here isn't recorded in stock history. Use "Adjust stock" for tracked changes.
                   </p>
                 </div>
@@ -463,19 +440,19 @@ function ProductsContent() {
                   placeholder="Low stock threshold"
                   value={editForm.lowStockAlert}
                   onChange={(e) => setEditForm({ ...editForm, lowStockAlert: e.target.value })}
-                  className="w-full rounded-md border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm text-white placeholder-neutral-500"
+                  className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100"
                 />
                 <div className="flex justify-end gap-2 pt-2">
                   <button
                     type="button"
                     onClick={() => setEditModalProduct(null)}
-                    className="rounded-md px-4 py-2 text-sm text-neutral-400 hover:bg-neutral-800"
+                    className="rounded-md px-4 py-2 text-sm text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
-                    className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500"
+                    className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700"
                   >
                     Save Changes
                   </button>
@@ -483,6 +460,17 @@ function ProductsContent() {
               </form>
             </div>
           </div>
+        )}
+
+        {archiveConfirmProduct && (
+          <ConfirmModal
+            title="Archive Product"
+            message={`Archive "${archiveConfirmProduct.name}"? It will be hidden from active inventory but its stock history is preserved.`}
+            confirmLabel="Archive"
+            danger
+            onConfirm={confirmArchive}
+            onCancel={() => setArchiveConfirmProduct(null)}
+          />
         )}
       </div>
     </div>

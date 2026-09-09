@@ -49,7 +49,10 @@ export const api = {
   deleteProduct: (id: number) => request(`/products/${id}`, { method: 'DELETE' }),
   archiveProduct: (id: number) => request(`/products/${id}/archive`, { method: 'PATCH' }),
   restoreProduct: (id: number) => request(`/products/${id}/restore`, { method: 'PATCH' }),
-
+  getUsers: () => request('/users'),
+  updateUserRole: (id: number, role: string) =>
+    request(`/users/${id}/role`, { method: 'PATCH', body: JSON.stringify({ role }) }),
+  deleteUser: (id: number) => request(`/users/${id}`, { method: 'DELETE' }),
   getSuppliers: () => request('/suppliers'),
   createSupplier: (data: any) => request('/suppliers', { method: 'POST', body: JSON.stringify(data) }),
 

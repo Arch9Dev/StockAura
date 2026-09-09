@@ -36,16 +36,19 @@ router.get('/', authenticate, async (req, res) => {
   const sortField = allowedSortFields.includes(sortBy) ? sortBy : 'name';
   const sortDirection = sortDir === 'desc' ? 'desc' : 'asc';
 
-  const [products, total] = await Promise.all([
-    prisma.product.findMany({
-      where,
-      include: { supplier: true },
-      orderBy: { [sortField]: sortDirection },
-      skip: (pageNum - 1) * pageSizeNum,
-      take: pageSizeNum,
-    }),
-    prisma.product.count({ where }),
-  ]);
+const [products, total] = await Promise.all([
+  prisma.product.findMany({
+    where,
+    include: {
+      supplier: true,
+      _count: { select: { stockMovements: true } },
+    },
+    orderBy: { [sortField]: sortDirection },
+    skip: (pageNum - 1) * pageSizeNum,
+    take: pageSizeNum,
+  }),
+  prisma.product.count({ where }),
+]);
 
   res.json({
     data: products,

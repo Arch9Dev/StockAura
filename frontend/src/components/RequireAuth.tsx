@@ -16,7 +16,7 @@ export default function RequireAuth({ children }: { children: React.ReactNode })
 
   if (loading || !user) {
     return (
-      <div className="flex min-h-screen items-center justify-center text-gray-500">
+      <div className="flex min-h-screen items-center justify-center bg-slate-50 text-gray-500 dark:bg-gray-950 dark:text-gray-400">
         Loading...
       </div>
     );
