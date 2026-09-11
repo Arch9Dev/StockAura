@@ -7,6 +7,7 @@
     "dev": "nodemon --watch src --exec ts-node src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js",
+    "test": "jest",
     "postinstall": "prisma skills sync || exit 0"
   },
   "keywords": [],
