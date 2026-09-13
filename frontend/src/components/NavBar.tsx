@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import ThemeToggle from '@/components/ThemeToggle';
+import Image from 'next/image';
 
 export default function NavBar() {
   const { user, logout } = useAuth();
@@ -18,7 +19,10 @@ export default function NavBar() {
   return (
     <div className="mb-6 flex items-center justify-between border-b border-gray-200 pb-4 dark:border-gray-800">
       <div className="flex items-center gap-6">
-        <span className="text-lg font-semibold text-gray-900 dark:text-white">StockAura</span>
+        <div className="flex items-center gap-2">
+          <Image src="/icon-transparent.png" alt="" width={45} height={45} />
+          <span className="text-lg font-semibold text-gray-900 dark:text-white">StockAura</span>
+        </div>
         <nav className="flex gap-4 text-sm">
           <Link href="/dashboard" className={linkClass('/dashboard')}>Dashboard</Link>
           <Link href="/products" className={linkClass('/products')}>Products</Link>
